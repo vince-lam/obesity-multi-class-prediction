@@ -3,7 +3,7 @@ import pandas as pd
 from lightgbm import LGBMClassifier
 from sklearn.metrics import accuracy_score
 
-df = pd.read_csv("data/processed/train_folds.csv")
+df = pd.read_csv("data/processed/train_and_original_folds.csv")
 df_test = pd.read_csv("data/raw/test.csv")
 submission = pd.read_csv("data/raw/sample_submission.csv")
 
