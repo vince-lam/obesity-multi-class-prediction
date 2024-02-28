@@ -6,11 +6,8 @@ def get_numerical_columns(df):
     return df.select_dtypes(include=[np.number]).columns.tolist()
 
 
-def get_categorical_columns(df, target="NObeyesdad"):
+def get_categorical_columns(df):
     cat_cols = df.select_dtypes(include=[object]).columns.tolist()
-    """    if target in cat_cols:
-        cat_cols.remove(target)
-    print(cat_cols)"""
     return cat_cols
 
 
@@ -49,9 +46,7 @@ def apply_ordinal_encoding(df):
 
 # Apply one hot encoding
 def apply_ohe(df):
-    # categorical_cols = get_categorical_columns(df)
     tmp = df.copy()
-    # tmp = pd.get_dummies(tmp, columns=categorical_cols, drop_first=True)
     tmp = pd.get_dummies(tmp, columns=["Gender", "MTRANS"], drop_first=True)
 
     return tmp
@@ -63,6 +58,5 @@ def preprocess_df(df):
     tmp = convert_yes_no_to_binary(tmp, binary_cols)
     tmp = apply_ordinal_encoding(tmp)
     tmp = apply_ohe(tmp)
-    print(tmp.head(2))
 
     return tmp
