@@ -1,4 +1,6 @@
 import datetime
+import warnings
+
 import mlflow
 import numpy as np
 import optuna
@@ -15,12 +17,12 @@ from experiment_tracking import (
 from feature_engineering import create_all_features
 from preprocessing import combine_train_and_original_dfs, preprocess_df
 
-
+warnings.filterwarnings("ignore")
 target = "NObeyesdad"
 random_state = 0
 n_trials = 2
 current_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
-run_name = f"{current_datetime}_lgbm_all_feats_{n_trials}"
+run_name = f"{current_datetime}_lgbm_add_log_physical_{n_trials}"
 
 mlflow.set_tracking_uri("http://127.0.0.1:5000/")
 experiment_id = get_or_create_experiment("Obesity Prediction")
@@ -71,18 +73,9 @@ df_original = pd.read_csv("data/raw/ObesityDataSet.csv")
 
 train = combine_train_and_original_dfs(df_train, df_original)
 X_test = df_test.drop(["id"], axis=1)
-print(train.head(2))
-print(X_test.head(2))
+
 # Apply preprocessing
-# train, X_test = preprocess_df(train), preprocess_df(X_test)
-train = preprocess_df(train)
-print(train.head(2))
-
-X_test = preprocess_df(X_test)
-
-print(X_test.head(2))
-# Apply feature engineering
-train, X_test = create_all_features(train), create_all_features(X_test)
+train, X_test = preprocess_df(train), preprocess_df(X_test)
 
 X = train.drop([target], axis=1)
 y = train[target]
@@ -91,6 +84,9 @@ y = train[target]
 X_train, X_valid, y_train, y_valid = train_test_split(
     X, y, test_size=0.2, random_state=random_state
 )
+
+# Apply feature engineering
+train, X_test = create_all_features(train), create_all_features(X_test)
 
 # Initiate the parent run and call the hyperparameter tuning child run logic
 with mlflow.start_run(experiment_id=experiment_id, run_name=run_name, nested=True):
