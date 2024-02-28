@@ -1,27 +1,26 @@
+import datetime
 import mlflow
 import numpy as np
 import optuna
 import pandas as pd
 from lightgbm import LGBMClassifier
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.model_selection import train_test_split
 
-from feature_engineering import create_bmi_features
-from preprocessing import (
-    get_numerical_columns,
-    get_categorical_columns,
-    combine_train_and_original_dfs,
-)
 from experiment_tracking import (
-    get_or_create_experiment,
     champion_callback,
+    get_or_create_experiment,
     plot_feature_importance,
 )
+from feature_engineering import create_all_features
+from preprocessing import combine_train_and_original_dfs, preprocess_df
+
 
 target = "NObeyesdad"
 random_state = 0
-n_trials = 20
-run_name = f"1_optuna_lgbm_bmi_feats_{n_trials}"
+n_trials = 2
+current_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
+run_name = f"{current_datetime}_lgbm_all_feats_{n_trials}"
 
 mlflow.set_tracking_uri("http://127.0.0.1:5000/")
 experiment_id = get_or_create_experiment("Obesity Prediction")
@@ -38,6 +37,7 @@ def objective(trial):
             "objective": "multiclass",
             "metric": "multi_logloss",
             "verbosity": -1,
+            "verbose_eval": -1,
             "boosting_type": "gbdt",
             "random_state": random_state,
             "num_class": 7,
@@ -69,19 +69,20 @@ df_train = pd.read_csv("data/raw/train.csv")
 df_test = pd.read_csv("data/raw/test.csv")
 df_original = pd.read_csv("data/raw/ObesityDataSet.csv")
 
-# Preprocessing
-numerical_cols = get_numerical_columns(df_train)
-categorical_cols = get_categorical_columns(df_train)
-
 train = combine_train_and_original_dfs(df_train, df_original)
 X_test = df_test.drop(["id"], axis=1)
+print(train.head(2))
+print(X_test.head(2))
+# Apply preprocessing
+# train, X_test = preprocess_df(train), preprocess_df(X_test)
+train = preprocess_df(train)
+print(train.head(2))
 
-train = create_bmi_features(train)
-X_test = create_bmi_features(X_test)
+X_test = preprocess_df(X_test)
 
-# Apply one-hot encoding
-train = pd.get_dummies(train, columns=categorical_cols, drop_first=True)
-X_test = pd.get_dummies(X_test, columns=categorical_cols, drop_first=True)
+print(X_test.head(2))
+# Apply feature engineering
+train, X_test = create_all_features(train), create_all_features(X_test)
 
 X = train.drop([target], axis=1)
 y = train[target]
@@ -134,7 +135,7 @@ with mlflow.start_run(experiment_id=experiment_id, run_name=run_name, nested=Tru
         input_example=X_train.iloc[[0]],
         metadata={"model_data_version": 1},
     )
-
+    print("Best accuracy:", study.best_value)
     print("Best params:", study.best_params)
 
     # Get the logged model uri so that we can load it from the artifact store
