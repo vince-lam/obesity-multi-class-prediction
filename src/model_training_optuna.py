@@ -1,4 +1,5 @@
 import datetime
+import time
 import warnings
 
 import mlflow
@@ -20,7 +21,7 @@ from preprocessing import combine_train_and_original_dfs, preprocess_df
 warnings.filterwarnings("ignore")
 target = "NObeyesdad"
 random_state = 0
-n_trials = 2
+n_trials = 5
 current_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
 run_name = f"{current_datetime}_lgbm_add_log_physical_{n_trials}"
 
@@ -90,8 +91,10 @@ train, X_test = create_all_features(train), create_all_features(X_test)
 
 # Initiate the parent run and call the hyperparameter tuning child run logic
 with mlflow.start_run(experiment_id=experiment_id, run_name=run_name, nested=True):
+    start_time = time.time()
+
     # Initialize the Optuna study
-    study = optuna.create_study(direction="minimize")
+    study = optuna.create_study(direction="maximize")
 
     # Execute the hyperparameter optimization trials.
     # Note the addition of the `champion_callback` inclusion to control our logging
@@ -100,9 +103,15 @@ with mlflow.start_run(experiment_id=experiment_id, run_name=run_name, nested=Tru
         n_trials=n_trials,
         callbacks=[champion_callback],
     )
+    end_time = time.time()
+    duration = end_time - start_time
+    duration_str = str(datetime.timedelta(seconds=duration))
+    print(f"Experiment duration: {duration_str}")
 
     mlflow.log_params(study.best_params)
     mlflow.log_metric("best_accuracy", study.best_value)
+    mlflow.log_metric("Duration in seconds", duration)
+    mlflow.log_param("Readable Duration", duration_str)
 
     # Log tags
     mlflow.set_tags(
@@ -137,3 +146,5 @@ with mlflow.start_run(experiment_id=experiment_id, run_name=run_name, nested=Tru
     # Get the logged model uri so that we can load it from the artifact store
     model_uri = mlflow.get_artifact_uri(artifact_path)
     print("model_uri:", model_uri)
+
+    mlflow.end_run()
