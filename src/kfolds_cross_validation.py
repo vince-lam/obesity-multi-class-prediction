@@ -1,7 +1,11 @@
+import datetime
+
 import numpy as np
 import pandas as pd
 from lightgbm import LGBMClassifier
 from sklearn.metrics import accuracy_score
+
+from feature_engineering import create_bmi_features
 
 df = pd.read_csv("data/processed/train_and_original_folds.csv")
 df_test = pd.read_csv("data/raw/test.csv")
@@ -9,6 +13,8 @@ submission = pd.read_csv("data/raw/sample_submission.csv")
 
 random_state = 0
 target = "NObeyesdad"
+output_dir = "outputs/submissions/"
+filename_suffix = "lgbm_no_feature_eng_kfolds"
 
 params = {
     "objective": "multiclass",  # Objective function for the model
@@ -57,6 +63,11 @@ def run_kfolds_cross_validation(
         y_train = x_train[target]
         y_valid = x_valid[target]
 
+        # create new features
+        x_train = create_bmi_features(x_train)
+        x_valid = create_bmi_features(x_train)
+        x_test = create_bmi_features(x_train)
+
         x_train = x_train[useful_features]
         x_valid = x_valid[useful_features]
 
@@ -99,6 +110,8 @@ for predictions in transposed_predictions:
     final_mode_predictions.append(mode_prediction)
 
 submission[target] = final_mode_predictions
-submission.to_csv(
-    "data/submissions/submission3_lgbm_no_feature_eng_kfolds.csv", index=False
-)
+
+
+current_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
+filename = f"{output_dir}{current_datetime}_{filename_suffix}.csv"
+submission.to_csv(filename, index=False)
