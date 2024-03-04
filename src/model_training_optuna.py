@@ -7,7 +7,14 @@ import numpy as np
 import optuna
 import pandas as pd
 from lightgbm import LGBMClassifier
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    precision_recall_fscore_support,
+    confusion_matrix,
+)
+
 from sklearn.model_selection import train_test_split
 
 from experiment_tracking import (
@@ -21,7 +28,7 @@ from preprocessing import combine_train_and_original_dfs, preprocess_df
 warnings.filterwarnings("ignore")
 target = "NObeyesdad"
 random_state = 0
-n_trials = 5
+n_trials = 25
 current_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
 run_name = f"{current_datetime}_lgbm_add_log_physical_{n_trials}"
 
@@ -103,15 +110,9 @@ with mlflow.start_run(experiment_id=experiment_id, run_name=run_name, nested=Tru
         n_trials=n_trials,
         callbacks=[champion_callback],
     )
-    end_time = time.time()
-    duration = end_time - start_time
-    duration_str = str(datetime.timedelta(seconds=duration))
-    print(f"Experiment duration: {duration_str}")
 
     mlflow.log_params(study.best_params)
     mlflow.log_metric("best_accuracy", study.best_value)
-    mlflow.log_metric("Duration in seconds", duration)
-    mlflow.log_param("Readable Duration", duration_str)
 
     # Log tags
     mlflow.set_tags(
@@ -128,9 +129,23 @@ with mlflow.start_run(experiment_id=experiment_id, run_name=run_name, nested=Tru
     model.fit(X_train, y_train)
     y_pred = model.predict(X_valid)
 
+    precision, recall, f1, _ = precision_recall_fscore_support(
+        y_valid, y_pred, average="weighted"
+    )
+    conf_matrix = confusion_matrix(y_valid, y_pred)
+    report = classification_report(y_valid, y_pred, output_dict=True)
+
     # Log the feature importances plot
     importances = plot_feature_importance(model, X=X)
     mlflow.log_figure(figure=importances, artifact_file="feature_importances.png")
+
+    # Log the confusion matrix as an artifact (convert it to a file first)
+    np.savetxt("confusion_matrix.csv", conf_matrix, delimiter=",")
+    mlflow.log_artifact("confusion_matrix.csv")
+
+    report_df = pd.DataFrame(report).transpose()
+    report_df.to_csv("classification_report.csv")
+    mlflow.log_artifact("classification_report.csv")
 
     artifact_path = "model"
 
@@ -140,6 +155,12 @@ with mlflow.start_run(experiment_id=experiment_id, run_name=run_name, nested=Tru
         input_example=X_train.iloc[[0]],
         metadata={"model_data_version": 1},
     )
+    end_time = time.time()
+    duration = end_time - start_time
+    duration_str = str(datetime.timedelta(seconds=duration))
+    mlflow.log_metric("Duration in seconds", duration)
+    mlflow.log_param("Readable Duration", duration_str)
+    print(f"Experiment duration: {duration_str}")
     print("Best accuracy:", study.best_value)
     print("Best params:", study.best_params)
 
