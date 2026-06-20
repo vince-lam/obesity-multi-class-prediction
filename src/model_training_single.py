@@ -92,9 +92,9 @@ with mlflow.start_run(experiment_id=experiment_id, run_name=run_name, nested=Tru
     model.fit(X_train, y_train)
     y_pred = model.predict(X_valid)
 
-    mlflow.lightgbm.log_model(
+    model_info = mlflow.lightgbm.log_model(
         lgb_model=model,
-        artifact_path=artifact_path,
+        name=artifact_path,
         input_example=X_train.iloc[[0]],
         metadata={"model_data_version": 1},
     )
@@ -103,7 +103,7 @@ with mlflow.start_run(experiment_id=experiment_id, run_name=run_name, nested=Tru
     print("Accuracy:", accuracy)
 
     # Get the logged model uri so that we can load it from the artifact store
-    model_uri = mlflow.get_artifact_uri(artifact_path)
+    model_uri = model_info.model_uri
     print("model_uri:", model_uri)
 
 # Submission
